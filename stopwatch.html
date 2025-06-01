@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Modern Stopwatch with Laps</title>
+<style>
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    display: flex;
+    height: 100vh;
+    justify-content: center;
+    align-items: center;
+    margin: 0;
+    color: white;
+  }
+  .stopwatch-container {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 2.5rem 3rem;
+    border-radius: 20px;
+    box-shadow: 0 8px 25px #a8a6f9(118, 75, 162, 0.4);
+    text-align: center;
+    width: 360px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+  }
+  h1 {
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-size: 1.6rem;
+  }
+  .time-display {
+    font-size: 3.5rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    user-select: none;
+    margin-bottom: 1.5rem;
+    font-variant-numeric: tabular-nums;
+  }
+  .controls {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  button {
+    background:grey;
+    border: none;
+    padding: 0.75rem 1.4rem;
+    border-radius: 12px;
+    color: white;
+    font-weight: 600;
+    font-size: 1rem;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(106, 90, 249, 0.5);
+    transition: background-color 0.3s ease, box-shadow 0.3s ease;
+  }
+  button:hover:not(:disabled),
+  button:focus:not(:disabled) {
+    background-color: #5749c8;
+    box-shadow: 0 6px 25px rgba(87, 73, 200, 0.7);
+    outline: none;
+  }
+  button:disabled {
+    background-color: #a8a6f9;
+    cursor: default;
+    box-shadow: none;
+  }
+  .laps {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    flex-grow: 1;
+    overflow-y: auto;
+    max-height: 200px;
+    box-shadow: inset 0 0 15px rgba(255,255,255,0.2);
+  }
+  .laps h2 {
+    margin-top: 0;
+    margin-bottom: 0.75rem;
+    font-weight: 700;
+    font-size: 1.2rem;
+    color: #e2d7fb;
+    text-align: left;
+  }
+  .lap-item {
+    font-family: monospace;
+    display: flex;
+    justify-content: space-between;
+    padding: 0.25rem 0;
+    border-bottom: 1px solid rgba(255,255,255,0.2);
+  }
+  .lap-item:last-child {
+    border-bottom: none;
+  }
+  .lap-number {
+    font-weight: 600;
+    color: #bcb8ee;
+  }
+  .lap-time {
+    font-variant-numeric: tabular-nums;
+  }
+  @media (max-width: 400px) {
+    .stopwatch-container {
+      width: 90vw;
+      padding: 2rem 2rem;
+      max-height: 85vh;
+    }
+    .time-display {
+      font-size: 2.8rem;
+    }
+  }
+</style>
+</head>
+<body>
+  <div class="stopwatch-container" role="main" aria-label="Stopwatch with lap times">
+    <h1>Stopwatch</h1>
+    <div class="time-display" id="time-display" aria-live="polite" aria-atomic="true" aria-label="Elapsed time">00:00.000</div>
+    <div class="controls">
+      <button id="start-btn" aria-label="Start stopwatch">Start</button>
+      <button id="stop-btn" disabled aria-label="Stop stopwatch">Stop</button>
+      <button id="lap-btn" disabled aria-label="Record lap time">Lap</button>
+      <button id="reset-btn" disabled aria-label="Reset stopwatch">Reset</button>
+    </div>
+    <div class="laps" id="laps" aria-label="Lap times list" tabindex="0">
+      <h2>Laps</h2>
+      <div id="laps-list" role="list"></div>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      const timeDisplay = document.getElementById('time-display');
+      const startBtn = document.getElementById('start-btn');
+      const stopBtn = document.getElementById('stop-btn');
+      const lapBtn = document.getElementById('lap-btn');
+      const resetBtn = document.getElementById('reset-btn');
+      const lapsList = document.getElementById('laps-list');
+
+      let startTime = 0;
+      let elapsedTime = 0;
+      let timerInterval;
+      let laps = [];
+
+      function formatTime(ms) {
+        const totalSeconds = Math.floor(ms / 1000);
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        const milliseconds = ms % 1000;
+
+        const mm = minutes.toString().padStart(2, '0');
+        const ss = seconds.toString().padStart(2, '0');
+        const msStr = milliseconds.toString().padStart(3, '0');
+
+        return `${mm}:${ss}.${msStr}`;
+      }
+
+      function updateTime() {
+        elapsedTime = Date.now() - startTime;
+        timeDisplay.textContent = formatTime(elapsedTime);
+      }
+
+      function renderLaps() {
+        lapsList.innerHTML = '';
+        laps.forEach((lapTime, index) => {
+          const lapItem = document.createElement('div');
+          lapItem.className = 'lap-item';
+          lapItem.setAttribute('role', 'listitem');
+          lapItem.innerHTML = `<span class="lap-number">Lap ${index + 1}</span> <span class="lap-time">${formatTime(lapTime)}</span>`;
+          lapsList.appendChild(lapItem);
+        });
+        if(laps.length) {
+          lapsList.parentElement.scrollTop = lapsList.parentElement.scrollHeight;
+        }
+      }
+
+      startBtn.addEventListener('click', () => {
+        startTime = Date.now() - elapsedTime;
+        timerInterval = setInterval(updateTime, 10);
+
+        startBtn.disabled = true;
+        stopBtn.disabled = false;
+        lapBtn.disabled = false;
+        resetBtn.disabled = false;
+      });
+
+      stopBtn.addEventListener('click', () => {
+        clearInterval(timerInterval);
+
+        startBtn.disabled = false;
+        stopBtn.disabled = true;
+        lapBtn.disabled = true;
+      });
+
+      lapBtn.addEventListener('click', () => {
+        if(elapsedTime > 0) {
+          laps.push(elapsedTime);
+          renderLaps();
+        }
+      });
+
+      resetBtn.addEventListener('click', () => {
+        clearInterval(timerInterval);
+        elapsedTime = 0;
+        laps = [];
+        timeDisplay.textContent = '00:00.000';
+        renderLaps();
+
+        startBtn.disabled = false;
+        stopBtn.disabled = true;
+        lapBtn.disabled = true;
+        resetBtn.disabled = true;
+      });
+    })();
+  </script>
+</body>
+</html>
